@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, request
+from pydantic import ValidationError
 from app.models.questions import Question
 from app.models import db
-
+from app.schemas.questions import QuestionResponse, MessageResponse, QuestionCreate
 
 questions_bp = Blueprint('questions', __name__, url_prefix='/questions')
 
@@ -12,8 +13,17 @@ def get_questions():
     Returns a list of all questions.
     """
     questions = Question.query.all()
-    data = [{'id': item.id, 'question': item.question} for item in questions]
-    return jsonify(data)
+
+    data = []
+    for item in questions:
+        try:
+            res = QuestionResponse.model_validate(item)
+            res = res.model_dump()
+            data.append(res)
+        except ValidationError as e:
+            continue
+
+    return jsonify(data), 200
 
 
 @questions_bp.route('/', methods=['POST'])
@@ -22,14 +32,16 @@ def create_question():
     Creates a new question.
     """
     data = request.get_json()
-    if not data or 'question' not in data:
-        return jsonify({'error': 'No text provided'}), 400
+    try:
+        data = QuestionCreate(**data)
+    except ValidationError as e:
+        return jsonify({'error': str(e)}), 400
 
-    question = Question(question=data['question'])
+    question = Question(question=data.question)
     db.session.add(question)
     db.session.commit()
 
-    return jsonify({'id': question.id, 'question': question.question}), 201
+    return jsonify(QuestionResponse(id=question.id, question=question.question).model_dump()), 201
 
 
 @questions_bp.route('/<int:id>', methods=['GET'])
