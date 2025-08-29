@@ -1,5 +1,8 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_migrate import Migrate
+from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
+
 from .models import db
 
 from config import DevelopmentConfig, ProductionConfig, TestingConfig
@@ -33,5 +36,9 @@ def create_app():
 
     app.register_blueprint(questions_bp)
     app.register_blueprint(response_bp)
+
+    # Просмотреть все зарегистрированные endpoint-ы
+    # for rule in app.url_map.iter_rules():
+    #     print(f"Endpoint: {rule.endpoint}, URL: {rule}")
 
     return app

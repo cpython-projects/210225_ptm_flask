@@ -3,6 +3,8 @@ from pydantic import ValidationError
 from app.models.questions import Question
 from app.models import db
 from app.schemas.questions import QuestionResponse, MessageResponse, QuestionCreate
+from sqlalchemy.exc import SQLAlchemyError
+from app.errors.question_errors import QuestionError, QuestionEmptyError, QuestionValueError
 
 questions_bp = Blueprint('questions', __name__, url_prefix='/questions')
 
@@ -32,15 +34,21 @@ def create_question():
     Creates a new question.
     """
     data = request.get_json()
-    try:
-        data = QuestionCreate(**data)
-    except ValidationError as e:
-        return jsonify({'error': str(e)}), 400
+    if not data:
+        raise QuestionEmptyError('No data provided.')
+    text = data.get('text')
+    if not text:
+        raise QuestionEmptyError('No text provided.')
+    text = text.strip()
+    if not text:
+        raise QuestionEmptyError('No text provided.')
+    if len(text) < 10:
+        raise QuestionValueError('Text too short.')
 
-    question = Question(question=data.question)
+    # data = QuestionCreate(**data)
+    question = Question(question=text)
     db.session.add(question)
     db.session.commit()
-
     return jsonify(QuestionResponse(id=question.id, question=question.question).model_dump()), 201
 
 
